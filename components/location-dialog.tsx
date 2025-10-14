@@ -1,15 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import {useState} from "react"
 
-type LocationDialogProps={
-  location:{ lat:number; lng:number }
-  onSubmit:(data:{ name:string; city?:string; country?:string; weatherNote:string })=>void
+type Props={
+  location:{lat:number; lng:number}
+  onSubmit:(data:{name:string; city?:string; country?:string; weatherNote:string})=>void
   onClose:()=>void
 }
 
-export function LocationDialog({ location, onSubmit, onClose }:LocationDialogProps){
+export function LocationDialog({location, onSubmit, onClose}:Props){
   const [name, setName]=useState("")
   const [city, setCity]=useState("")
   const [country, setCountry]=useState("")
@@ -17,15 +17,15 @@ export function LocationDialog({ location, onSubmit, onClose }:LocationDialogPro
 
   const handleSubmit=(e:React.FormEvent)=>{
     e.preventDefault()
-    if(!name||!weatherNote){ return }
-    onSubmit({ name, city:city||undefined, country:country||undefined, weatherNote })
+    if(!name||!weatherNote){return}
+    onSubmit({name, city:city||undefined, country:country||undefined, weatherNote})
   }
 
   return (
     <div className="fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center" onClick={onClose}>
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e)=>e.stopPropagation()}>
         <div className="font-semibold text-lg mb-1">Add Your Location</div>
-        <div className="text-sm text-gray-600 mb-4">Please add your name and what the weather’s doing.</div>
+        <div className="text-sm text-gray-600 mb-4">Please add your name and the weather.</div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
