@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client"
 import type { LocationPin } from "@/lib/types"
 import { LocationDialog } from "./location-dialog"
 import { MapPin } from "lucide-react"
-import { getClientId, getSessionId } from "@/lib/identity"
 
 const MAP_BOUNDS={ north:20, south:-50, west:90, east:180 }
 
@@ -19,6 +18,20 @@ const positionToLatLng=(x:number, y:number)=>{
   const lng=MAP_BOUNDS.west+(x/100)*(MAP_BOUNDS.east-MAP_BOUNDS.west)
   const lat=MAP_BOUNDS.north-(y/100)*(MAP_BOUNDS.north-MAP_BOUNDS.south)
   return { lat, lng }
+}
+
+// inline helpers so no extra files needed
+const getClientId=()=>{
+  if(typeof window==="undefined"){ return "server" }
+  const k="zoom_map_client_id"
+  let id=localStorage.getItem(k)
+  if(!id){ id=crypto.randomUUID(); localStorage.setItem(k, id) }
+  return id!
+}
+const getSessionId=()=>{
+  if(typeof window==="undefined"){ return "default" }
+  const u=new URL(window.location.href)
+  return u.searchParams.get("session")||"default"
 }
 
 export function MapView(){
@@ -93,7 +106,7 @@ export function MapView(){
             backgroundPosition:"center"
           }}
         >
-          <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 opacity-10 pointer-events-none">
             <div className="grid grid-cols-10 grid-rows-10 h-full w-full">
               {Array.from({ length:100 }).map((_, i)=>(<div key={i} className="border border-gray-400" />))}
             </div>
@@ -108,6 +121,7 @@ export function MapView(){
                 style={{ left:`${pos.x}%`, top:`${pos.y}%` }}
                 onMouseEnter={()=>setHoveredPin(pin)}
                 onMouseLeave={()=>setHoveredPin(null)}
+                onClick={(e)=>e.stopPropagation()} // don’t re-open dialog when clicking a pin
                 title={`${pin.name||"Someone"}${pin.city?", "+pin.city:""}${pin.country?" • "+pin.country:""}`}
               >
                 <MapPin className="w-8 h-8 text-red-600 drop-shadow-lg" fill="currentColor"/>
