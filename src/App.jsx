@@ -1,45 +1,29 @@
-import {useState} from "react";
-import {MapContainer, TileLayer, Marker, useMapEvents} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import {useEffect, useState} from "react"
+import {createClient} from "../lib/supabase/client"
 
-// Fix default marker icons in Vite
-import marker2x from "leaflet/dist/images/marker-icon-2x.png";
-import marker1x from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: marker2x,
-  iconUrl: marker1x,
-  shadowUrl: markerShadow
-});
+export default function App(){
+  const [status, setStatus]=useState("Checking Supabase…")
 
-function LocationPicker({onSelect}) {
-  useMapEvents({
-    click: (e)=>{
-      onSelect(e.latlng);
+  useEffect(()=>{
+    const run=async()=>{
+      try{
+        const supabase=createClient()
+        const {data, error}=await supabase.from("location_pins").select("*").limit(1)
+        if(error){ setStatus("Supabase reachable, query error: "+error.message); return }
+        setStatus("OK: Supabase reachable"+(data?.length?" and table has rows":" (no rows yet)"))
+      }catch(err){
+        setStatus("Cannot reach Supabase: "+(err?.message||String(err)))
+      }
     }
-  });
-  return null;
-}
-
-export default function App() {
-  const [markers, setMarkers]=useState([]);
-
-  const handleSelect=(latlng)=>{
-    setMarkers((prev)=>[...prev, latlng]);
-    // 🔜 later: push to Firebase for realtime
-  };
+    run()
+  },[])
 
   return (
-    <div className="wrap">
-      <header className="bar">
-        <strong>Click the map to drop your pin</strong>
-      </header>
-      <MapContainer center={[0,0]} zoom={2} className="map">
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-        <LocationPicker onSelect={handleSelect}/>
-        {markers.map((pos, i)=><Marker key={i} position={pos}/>)}
-      </MapContainer>
+    <div style={{height:"100vh", display:"grid", placeItems:"center", fontFamily:"system-ui"}}>
+      <div>
+        <h1 style={{marginBottom:8}}>Supabase Connectivity Test</h1>
+        <code>{status}</code>
+      </div>
     </div>
-  );
+  )
 }
