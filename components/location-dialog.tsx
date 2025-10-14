@@ -22,8 +22,8 @@ export function LocationDialog({ location, onSubmit, onClose }:LocationDialogPro
   }
 
   return (
-    <div className="fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-[2000] bg-black/40 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6" onClick={(e)=>e.stopPropagation()}>
         <div className="font-semibold text-lg mb-1">Add Your Location</div>
         <div className="text-sm text-gray-600 mb-4">Please add your name and what the weather’s doing.</div>
 
