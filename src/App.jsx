@@ -5,7 +5,7 @@ export default function App(){
     <div style={{height:"100vh", display:"flex", flexDirection:"column"}}>
       <header style={{background:"linear-gradient(90deg,#2563eb,#0d9488)", color:"#fff", padding:"16px"}}>
         <h1 style={{margin:0, textAlign:"center"}}>Welcome to Our Session! 🌏</h1>
-        <p style={{margin:0, marginTop:"6px", textAlign:"center", opacity:0.9}}>Click anywhere on the map to show your location</p>
+        <p style={{margin:0, marginTop:"6px", textAlign:"center", opacity:0.9}}>Let's see where everyone is from.  Click anywhere on the map to show your location</p>
       </header>
       <main style={{position:"relative", flex:1}}>
         <MapView/>
