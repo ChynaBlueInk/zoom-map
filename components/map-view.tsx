@@ -16,7 +16,7 @@ type Pin={lat:number; lng:number; name:string; city?:string; country?:string; we
 type Props={ pins:Pin[]; setPins:(pins:Pin[])=>void }
 
 function ClickToSelect({onSelect}:{onSelect:(lat:number, lng:number)=>void}){
-  useMapEvents({ click:(e)=>{ onSelect(e.latlng.lat, e.latlng.lng) } })
+  useMapEvents({ click:(e)=>onSelect(e.latlng.lat, e.latlng.lng) })
   return null
 }
 
@@ -40,9 +40,10 @@ export function MapView({pins, setPins}:Props){
   const sessionId=getSessionId()
   const userId=getClientId()
   const pollRef=useRef<number|undefined>(undefined)
+  const channelRef=useRef<ReturnType<typeof supabase.channel>|null>(null)
 
   const mapRowsToPins=(rows:any[])=>{
-    return (rows||[]).filter(Boolean).map((r)=>({
+    return (rows||[]).map((r)=>({
       lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
       city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined
     }))
@@ -58,39 +59,27 @@ export function MapView({pins, setPins}:Props){
     setPins(mapRowsToPins(data||[]))
   }
 
-  // 1) Initial load + Realtime subscribe (with polling fallback)
+  // Initial load + Realtime broadcast + always-on polling
   useEffect(()=>{
-    let channel:any
-    let realtimeOk=false
+    let mounted=true
 
     const setup=async()=>{
       await loadPins()
+      // Broadcast-only channel (does NOT require Postgres replication)
+      const ch=supabase
+        .channel(`pins_broadcast_${sessionId}`)
+        .on("broadcast", {event:"reload"}, (_msg)=>{ if(mounted){ loadPins() } })
+        .subscribe()
+      channelRef.current=ch
 
-      // Try to subscribe to postgres changes (works even if Replication UI is not exposed)
-      channel=supabase
-        .channel(`pins_${sessionId}`)
-        .on("postgres_changes",
-            {event:"INSERT", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
-            (_payload)=>{ loadPins(); })
-        .on("postgres_changes",
-            {event:"UPDATE", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
-            (_payload)=>{ loadPins(); })
-        .on("postgres_changes",
-            {event:"DELETE", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
-            (_payload)=>{ loadPins(); })
-        .subscribe((status)=>{
-          // status can be 'SUBSCRIBED' when realtime is active
-          if(status==="SUBSCRIBED"){ realtimeOk=true; }
-        })
-
-      // Fallback polling every 5s if Realtime doesn’t connect
-      pollRef.current=window.setInterval(()=>{ if(!realtimeOk){ loadPins(); } }, 5000) as unknown as number
+      // Always-on polling (every 3s) in case a client can't receive broadcast
+      pollRef.current=window.setInterval(loadPins, 3000) as unknown as number
     }
-
     setup()
 
     return ()=>{
-      if(channel){ supabase.removeChannel(channel) }
+      mounted=false
+      if(channelRef.current){ supabase.removeChannel(channelRef.current) }
       if(pollRef.current){ clearInterval(pollRef.current) }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,7 +87,13 @@ export function MapView({pins, setPins}:Props){
 
   const handleSelect=(lat:number, lng:number)=>{ setSelected({lat, lng}) }
 
-  // 2) Save via upsert (one pin per person per session)
+  const notifyOthers=()=>{ // fire-and-forget broadcast
+    try{
+      channelRef.current?.send({type:"broadcast", event:"reload", payload:{ts:Date.now()}})
+    }catch(_e){}
+  }
+
+  // Save via upsert (one pin per person per session)
   const handleSubmit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
     if(!selected){ return }
     const row={
@@ -114,7 +109,9 @@ export function MapView({pins, setPins}:Props){
     const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
     if(error){ console.error("Upsert error:", error.message) }
     setSelected(null)
-    // No manual reload needed; realtime/polling will refresh
+    // Update self immediately, then notify others
+    await loadPins()
+    notifyOthers()
   }
 
   return (
