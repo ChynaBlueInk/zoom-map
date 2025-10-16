@@ -1,4 +1,5 @@
 import {MapView} from "../components/map-view"
+import {InstructionsPanel} from "../components/instructions-panel"
 
 export default function App(){
   return (
@@ -8,7 +9,8 @@ export default function App(){
         <p style={{margin:0, marginTop:"6px", textAlign:"center", opacity:0.9}}>Let's see where everyone is from.  Click anywhere on the map to show your location</p>
       </header>
       <main style={{position:"relative", flex:1}}>
-        <MapView/>
+         <MapView/>
+        <InstructionsPanel/>
       </main>
     </div>
   )
