@@ -2,6 +2,7 @@ import {useState} from "react"
 import {MapView} from "../components/map-view"
 import {InstructionsPanel} from "../components/instructions-panel"
 import {StatsPanel} from "../components/stats-panel"
+import {ResetSessionButton} from "../components/reset-session-button"   // <-- add this
 
 export default function App(){
   const [pins, setPins]=useState([])
@@ -16,6 +17,7 @@ export default function App(){
         <MapView pins={pins} setPins={setPins}/>
         <InstructionsPanel/>
         <StatsPanel pins={pins}/>
+        <ResetSessionButton onReset={()=>setPins([])}/>   {/* <-- add this */}
       </main>
     </div>
   )
