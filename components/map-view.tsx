@@ -1,13 +1,12 @@
 "use client"
 
-import {useEffect, useMemo, useState} from "react"
+import {useEffect, useMemo, useRef, useState} from "react"
 import {MapContainer, TileLayer, Marker, Tooltip, useMapEvents} from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
 import {LocationDialog} from "./location-dialog"
 import {createClient} from "../lib/supabase/client"
 
-// Fix Leaflet default icon paths for Vite
 import marker2x from "leaflet/dist/images/marker-icon-2x.png"
 import marker1x from "leaflet/dist/images/marker-icon.png"
 import markerShadow from "leaflet/dist/images/marker-shadow.png"
@@ -21,7 +20,6 @@ function ClickToSelect({onSelect}:{onSelect:(lat:number, lng:number)=>void}){
   return null
 }
 
-// Simple helpers inline so you don't need extra files
 const getClientId=()=>{
   if(typeof window==="undefined"){ return "server" }
   const k="zoom_map_client_id"
@@ -41,29 +39,66 @@ export function MapView({pins, setPins}:Props){
   const center={lat:0, lng:0}
   const sessionId=getSessionId()
   const userId=getClientId()
+  const pollRef=useRef<number|undefined>(undefined)
 
-  // 1) Initial load from Supabase (for current session only)
+  const mapRowsToPins=(rows:any[])=>{
+    return (rows||[]).filter(Boolean).map((r)=>({
+      lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
+      city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined
+    }))
+  }
+
+  const loadPins=async()=>{
+    const {data, error}=await supabase
+      .from("location_pins")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", {ascending:false})
+    if(error){ console.error("Load pins error:", error.message); return }
+    setPins(mapRowsToPins(data||[]))
+  }
+
+  // 1) Initial load + Realtime subscribe (with polling fallback)
   useEffect(()=>{
-    const load=async()=>{
-      const {data, error}=await supabase
-        .from("location_pins")
-        .select("*")
-        .eq("session_id", sessionId)
-        .order("created_at", {ascending:false})
-      if(error){ console.error("Load pins error:", error.message); return }
-      const mapped=(data||[]).map((r)=>({
-        lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
-        city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined
-      }))
-      setPins(mapped)
+    let channel:any
+    let realtimeOk=false
+
+    const setup=async()=>{
+      await loadPins()
+
+      // Try to subscribe to postgres changes (works even if Replication UI is not exposed)
+      channel=supabase
+        .channel(`pins_${sessionId}`)
+        .on("postgres_changes",
+            {event:"INSERT", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
+            (_payload)=>{ loadPins(); })
+        .on("postgres_changes",
+            {event:"UPDATE", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
+            (_payload)=>{ loadPins(); })
+        .on("postgres_changes",
+            {event:"DELETE", schema:"public", table:"location_pins", filter:`session_id=eq.${sessionId}`},
+            (_payload)=>{ loadPins(); })
+        .subscribe((status)=>{
+          // status can be 'SUBSCRIBED' when realtime is active
+          if(status==="SUBSCRIBED"){ realtimeOk=true; }
+        })
+
+      // Fallback polling every 5s if Realtime doesn’t connect
+      pollRef.current=window.setInterval(()=>{ if(!realtimeOk){ loadPins(); } }, 5000) as unknown as number
     }
-    load()
+
+    setup()
+
+    return ()=>{
+      if(channel){ supabase.removeChannel(channel) }
+      if(pollRef.current){ clearInterval(pollRef.current) }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]) // re-run if you change ?session=...
+  }, [sessionId])
 
   const handleSelect=(lat:number, lng:number)=>{ setSelected({lat, lng}) }
 
-  // 2) Save to Supabase with upsert (one pin per person per session)
+  // 2) Save via upsert (one pin per person per session)
   const handleSubmit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
     if(!selected){ return }
     const row={
@@ -76,26 +111,10 @@ export function MapView({pins, setPins}:Props){
       country:data.country||null,
       weather_note:data.weatherNote
     }
-    const {error}=await supabase
-      .from("location_pins")
-      .upsert(row, {onConflict:"session_id, user_id"})
-      .select()
+    const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
     if(error){ console.error("Upsert error:", error.message) }
-
-    // Re-fetch pins so UI reflects DB state
-    const {data:refresh, error:refErr}=await supabase
-      .from("location_pins")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", {ascending:false})
-    if(refErr){ console.error("Reload error:", refErr.message) }
-    const mapped=(refresh||[]).map((r)=>({
-      lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
-      city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined
-    }))
-    setPins(mapped)
-
     setSelected(null)
+    // No manual reload needed; realtime/polling will refresh
   }
 
   return (
