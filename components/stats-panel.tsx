@@ -1,73 +1,55 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
-import type { LocationPin } from "@/lib/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users } from "lucide-react"
-
-export function StatsPanel() {
-  const [pins, setPins] = useState<LocationPin[]>([])
-  const [totalPins, setTotalPins] = useState(0)
-
-  useEffect(() => {
-    const supabase = createClient()
-
-    // Fetch initial pins
-    const fetchPins = async () => {
-      const { data, error } = await supabase.from("location_pins").select("*").order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("[v0] Error fetching pins:", error)
-        return
-      }
-
-      setPins(data || [])
-      setTotalPins(data?.length || 0)
-    }
-
-    fetchPins()
-
-    // Subscribe to real-time changes
-    const channel = supabase
-      .channel("stats_pins_changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "location_pins" }, (payload) => {
-        setPins((current) => [payload.new as LocationPin, ...current])
-        setTotalPins((current) => current + 1)
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "location_pins" }, (payload) => {
-        setPins((current) => current.filter((pin) => pin.id !== (payload.old as LocationPin).id))
-        setTotalPins((current) => Math.max(0, current - 1))
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
-  const uniqueCountries = new Set(pins.filter((p) => p.country).map((p) => p.country)).size
+type Pin={lat:number; lng:number; name:string; city?:string; country?:string; weather?:string}
+export function StatsPanel({pins}:{pins:Pin[]|undefined}){
+  const byCountry:Record<string, number>={}
+  ;(pins||[]).forEach((p)=>{ if(p.country){ byCountry[p.country]=(byCountry[p.country]||0)+1 } })
+  const entries=Object.entries(byCountry).sort((a,b)=>b[1]-a[1])
+  const total=(pins||[]).length
+  const max=entries[0]?.[1]||1
 
   return (
-    <div className="absolute top-4 right-4 z-[1000] space-y-2">
-      <Card className="bg-white/95 backdrop-blur shadow-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Users className="h-4 w-4 text-blue-600" />
-            Live Stats
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Participants</span>
-            <span className="text-2xl font-bold text-blue-600">{totalPins}</span>
+    <div style={{
+      position:"fixed", top:16, right:16, zIndex:9999, width:320,
+      background:"#fff", borderRadius:12, padding:16, boxShadow:"0 12px 30px rgba(0,0,0,.2)",
+      fontFamily:"system-ui, Arial, sans-serif"
+    }}>
+      <div style={{fontWeight:700, fontSize:14, marginBottom:8}}>Live Stats</div>
+      <div style={{display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:8}}>
+        <span style={{color:"#475569"}}>Total Pins</span>
+        <span style={{fontWeight:700, color:"#2563eb"}}>{total}</span>
+      </div>
+
+      <div style={{fontWeight:700, fontSize:13, marginTop:8, marginBottom:6}}>Top Regions</div>
+      {entries.length===0&&(<div style={{fontSize:12, color:"#64748b"}}>No countries yet</div>)}
+      {entries.slice(0,5).map(([country, count])=>(
+        <div key={country} style={{marginBottom:8}}>
+          <div style={{display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:4}}>
+            <span style={{color:"#0f172a"}}>{country}</span>
+            <span style={{fontWeight:600}}>{count}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Countries</span>
-            <span className="text-2xl font-bold text-teal-600">{uniqueCountries}</span>
+          <div style={{height:8, background:"#e5e7eb", borderRadius:9999}}>
+            <div style={{height:8, width:`${(count/max)*100}%`, background:"#14b8a6", borderRadius:9999}}/>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      ))}
+
+      {/* Simple calligram-style sizing */}
+      {entries.length>0&&(
+        <div style={{
+          marginTop:12, padding:8, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8,
+          display:"flex", flexWrap:"wrap", gap:8, alignItems:"baseline"
+        }}>
+          {entries.map(([country, count])=>{
+            const size=12+Math.round((count/max)*16) // 12–28px
+            return (
+              <span key={country} style={{fontSize:size, fontWeight:600, color:"#1f2937"}}>
+                {country}
+              </span>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
