@@ -9,16 +9,30 @@ type Props={
   onClose:()=>void
 }
 
+const WEATHER_OPTIONS=["hot","cold","wet","dry","night","day"]
+
 export function LocationDialog({location, onSubmit, onClose}:Props){
   const [name, setName]=useState("")
   const [city, setCity]=useState("")
   const [country, setCountry]=useState("")
-  const [weatherNote, setWeatherNote]=useState("")
+  const [selectedWeather, setSelectedWeather]=useState<string[]>([])
+
+  const toggleWeather=(w:string)=>{
+    setSelectedWeather((prev)=>{
+      if(prev.includes(w)){ return prev.filter((x)=>x!==w) }
+      return [...prev, w]
+    })
+  }
 
   const handleSubmit=(e:React.FormEvent)=>{
     e.preventDefault()
-    if(!name||!weatherNote){return}
-    onSubmit({name, city:city||undefined, country:country||undefined, weatherNote})
+    if(!name||selectedWeather.length===0){ return }
+    onSubmit({
+      name,
+      city:city||undefined,
+      country:country||undefined,
+      weatherNote:selectedWeather.join(", ")
+    })
   }
 
   return (
@@ -27,15 +41,12 @@ export function LocationDialog({location, onSubmit, onClose}:Props){
       style={{
         position:"fixed", inset:0, background:"rgba(0,0,0,0.4)",
         display:"flex", alignItems:"center", justifyContent:"center",
-        zIndex: 2147483647 /* ensure it's above the map */
+        zIndex:2147483647
       }}
     >
       <div
         onClick={(e)=>e.stopPropagation()}
-        style={{
-          background:"#fff", borderRadius:8, boxShadow:"0 10px 30px rgba(0,0,0,.2)",
-          width:"100%", maxWidth:480, padding:24, fontFamily:"system-ui, Arial, sans-serif"
-        }}
+        style={{background:"#fff", borderRadius:8, boxShadow:"0 10px 30px rgba(0,0,0,.2)", width:"100%", maxWidth:480, padding:24, fontFamily:"system-ui, Arial, sans-serif"}}
       >
         <div style={{fontWeight:600, fontSize:18, marginBottom:6}}>Add Your Location</div>
         <div style={{color:"#555", fontSize:13, marginBottom:16}}>Please add your name and the weather.</div>
@@ -62,25 +73,34 @@ export function LocationDialog({location, onSubmit, onClose}:Props){
           </div>
 
           <div>
-            <div style={{fontSize:13, fontWeight:600, marginBottom:6}}>Weather</div>
+            <div style={{fontSize:13, fontWeight:600, marginBottom:6}}>Weather (choose one or more)</div>
             <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:8, fontSize:14}}>
-              {["hot","cold","wet","dry","night","day"].map((w)=>(
+              {WEATHER_OPTIONS.map((w)=>(
                 <label key={w} style={{
                   display:"flex", alignItems:"center", gap:8,
-                  border:"1px solid #ddd", borderRadius:6, padding:"8px 10px", cursor:"pointer"
+                  border:selectedWeather.includes(w)?"1px solid #60a5fa":"1px solid #ddd",
+                  background:selectedWeather.includes(w)?"#eff6ff":"#fff",
+                  borderRadius:6, padding:"8px 10px", cursor:"pointer"
                 }}>
-                  <input type="radio" name="weather" value={w} onChange={(e)=>setWeatherNote(e.target.value)}/>
+                  <input
+                    type="checkbox"
+                    checked={selectedWeather.includes(w)}
+                    onChange={()=>toggleWeather(w)}
+                  />
                   {w}
                 </label>
               ))}
+            </div>
+            <div style={{marginTop:6, fontSize:12, color:"#64748b"}}>
+              {selectedWeather.length>0? `Selected: ${selectedWeather.join(", ")}` : "Pick at least one"}
             </div>
           </div>
 
           <div style={{display:"flex", justifyContent:"flex-end", gap:8, marginTop:4}}>
             <button type="button" onClick={onClose}
                     style={{border:"1px solid #ccc", background:"#fff", borderRadius:6, padding:"8px 12px"}}>Cancel</button>
-            <button type="submit" disabled={!name||!weatherNote}
-                    style={{border:"none", background:"#2563eb", color:"#fff", borderRadius:6, padding:"8px 12px", opacity:(!name||!weatherNote)?0.6:1}}>
+            <button type="submit" disabled={!name||selectedWeather.length===0}
+                    style={{border:"none", background:"#2563eb", color:"#fff", borderRadius:6, padding:"8px 12px", opacity:(!name||selectedWeather.length===0)?0.6:1}}>
               Add Pin
             </button>
           </div>
