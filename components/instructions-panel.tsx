@@ -1,90 +1,101 @@
 "use client"
 
-import { useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { X, QrCode, Copy, Check } from "lucide-react"
+import {useMemo, useState} from "react"
 
-export function InstructionsPanel() {
-  const [isOpen, setIsOpen] = useState(true)
-  const [copied, setCopied] = useState(false)
-  const [showQR, setShowQR] = useState(false)
+export function InstructionsPanel(){
+  const [isOpen, setIsOpen]=useState(true)
+  const [copied, setCopied]=useState(false)
+  const [showQR, setShowQR]=useState(false)
 
-  const currentUrl = typeof window !== "undefined" ? window.location.href : ""
+  const currentUrl=useMemo(()=>{
+    if(typeof window==="undefined"){ return "" }
+    return window.location.href
+  },[])
 
-  const handleCopyLink = async () => {
-    try {
+  const handleCopy=async()=>{
+    try{
       await navigator.clipboard.writeText(currentUrl)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
+      setTimeout(()=>setCopied(false), 1500)
+    }catch(e){
+      console.error("Copy failed", e)
     }
   }
 
-  if (!isOpen) {
+  if(!isOpen){
     return (
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-20 left-4 z-50 bg-blue-600 hover:bg-blue-700"
-        size="sm"
+      <button
+        onClick={()=>setIsOpen(true)}
+        style={{
+          position:"fixed", top:80, left:16, zIndex:9999,
+          background:"#2563eb", color:"#fff", border:"none", borderRadius:8, padding:"8px 12px",
+          boxShadow:"0 6px 18px rgba(0,0,0,.15)", cursor:"pointer", fontSize:13
+        }}
       >
         Show Instructions
-      </Button>
+      </button>
     )
   }
 
   return (
-    <Card className="fixed top-20 left-4 z-50 p-6 max-w-md bg-white shadow-2xl">
-      <div className="flex justify-between items-start mb-4">
-        <h2 className="text-xl font-bold text-gray-900">How to Participate</h2>
-        <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-          <X className="w-4 h-4" />
-        </Button>
+    <div
+      style={{
+        position:"fixed", top:80, left:16, zIndex:9999,
+        width:340, background:"#fff", borderRadius:12, padding:16,
+        boxShadow:"0 12px 30px rgba(0,0,0,.2)", fontFamily:"system-ui, Arial, sans-serif"
+      }}
+    >
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8}}>
+        <div style={{fontWeight:700, fontSize:16, color:"#0f172a"}}>How to Participate</div>
+        <button
+          onClick={()=>setIsOpen(false)}
+          aria-label="Close"
+          style={{border:"none", background:"transparent", cursor:"pointer", fontSize:18, lineHeight:1}}
+        >×</button>
       </div>
 
-      <div className="space-y-4 text-sm text-gray-700">
-        <div className="space-y-2">
-          <p className="font-semibold text-blue-600">For Participants:</p>
-          <ol className="list-decimal list-inside space-y-2 ml-2">
-            <li>Click anywhere on the map to drop your location pin</li>
-            <li>Enter your city, country, and current weather</li>
-            <li>Watch as everyone's pins appear in real-time!</li>
-          </ol>
+      <ol style={{paddingLeft:16, margin:"8px 0 12px 0", color:"#334155", fontSize:14}}>
+        <li style={{marginBottom:6}}>Click anywhere on the map to drop your pin</li>
+        <li style={{marginBottom:6}}>Enter your <b>name</b>, optional city/country, and today’s <b>weather</b></li>
+        <li>Watch everyone’s pins appear in real time (we’ll turn this on next)</li>
+      </ol>
+
+      <div style={{borderTop:"1px solid #e2e8f0", paddingTop:12}}>
+        <div style={{fontWeight:600, fontSize:13, color:"#0f766e", marginBottom:8}}>Share this page</div>
+        <div style={{display:"flex", gap:8}}>
+          <button
+            onClick={handleCopy}
+            style={{
+              flex:1, border:"1px solid #cbd5e1", background:"#fff", borderRadius:8, padding:"8px 10px",
+              cursor:"pointer", fontSize:13
+            }}
+          >
+            {copied? "Copied!" : "Copy Link"}
+          </button>
+          <button
+            onClick={()=>setShowQR((s)=>!s)}
+            style={{border:"1px solid #cbd5e1", background:"#fff", borderRadius:8, padding:"8px 10px", cursor:"pointer", fontSize:13}}
+          >
+            {showQR? "Hide QR" : "QR Code"}
+          </button>
         </div>
 
-        <div className="border-t pt-4">
-          <p className="font-semibold text-teal-600 mb-2">Share this page:</p>
-          <div className="flex gap-2">
-            <Button onClick={handleCopyLink} variant="outline" size="sm" className="flex-1 bg-transparent">
-              {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-              {copied ? "Copied!" : "Copy Link"}
-            </Button>
-            <Button onClick={() => setShowQR(!showQR)} variant="outline" size="sm">
-              <QrCode className="w-4 h-4 mr-2" />
-              QR Code
-            </Button>
+        {showQR&&(
+          <div style={{marginTop:12, textAlign:"center", border:"1px solid #e2e8f0", borderRadius:8, padding:12}}>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`}
+              alt="QR to join"
+              width={200} height={200}
+              style={{display:"block", margin:"0 auto"}}
+            />
+            <div style={{fontSize:12, color:"#64748b", marginTop:6}}>Scan to join on mobile</div>
           </div>
-
-          {showQR && (
-            <div className="mt-4 p-4 bg-white rounded border flex flex-col items-center">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}`}
-                alt="QR Code"
-                className="w-48 h-48"
-              />
-              <p className="text-xs text-gray-500 mt-2 text-center">Scan to join on mobile</p>
-            </div>
-          )}
-        </div>
-
-        <div className="bg-blue-50 p-3 rounded text-xs">
-          <p className="font-semibold mb-1">💡 Tip for Hosts:</p>
-          <p>
-            Share the link in Zoom chat or display the QR code. Screen share this page to show everyone's locations!
-          </p>
-        </div>
+        )}
       </div>
-    </Card>
+
+      <div style={{background:"#eff6ff", border:"1px solid #dbeafe", color:"#1e3a8a", borderRadius:8, padding:8, fontSize:12, marginTop:12}}>
+        <b>Host tip:</b> share the link in Zoom chat or show the QR; screen-share this page while people add their pins.
+      </div>
+    </div>
   )
 }
