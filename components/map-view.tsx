@@ -11,6 +11,7 @@ import {createClient} from "../lib/supabase/client"
 type Pin={
   lat:number; lng:number; name:string;
   city?:string; country?:string; weather?:string;
+  aiTool?:string;
   userId?:string;
 }
 type Props={ pins:Pin[]; setPins:(pins:Pin[])=>void }
@@ -78,6 +79,7 @@ export function MapView({pins, setPins}:Props){
     return Array.from(byUser.values()).map((r)=>({
       lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
       city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined,
+      aiTool:r.ai_tool||undefined,
       userId:r.user_id as string|undefined
     }))
   }
@@ -139,6 +141,7 @@ export function MapView({pins, setPins}:Props){
         .update({
           latitude:p.lat, longitude:p.lng,
           name:p.name, city:p.city||null, country:p.country||null, weather_note:p.weather||null,
+          ai_tool:p.aiTool||null,
           created_at:nowIso
         })
         .eq("id", id)
@@ -150,6 +153,7 @@ export function MapView({pins, setPins}:Props){
           session_id:sessionId, user_id:userId,
           latitude:p.lat, longitude:p.lng,
           name:p.name, city:p.city||null, country:p.country||null, weather_note:p.weather||null,
+          ai_tool:p.aiTool||null,
           created_at:nowIso
         })
       if(error){ console.error("Insert error:", error.message) }
@@ -183,18 +187,24 @@ export function MapView({pins, setPins}:Props){
 
   // Add/move via map click
   const handleSelect=(lat:number, lng:number)=>{ setSelected({lat, lng}) }
-  const handleSubmitAdd=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
+  const handleSubmitAdd=async(data:{name:string; city?:string; country?:string; weatherNote:string; aiTool?:string})=>{
     if(!selected){ return }
-    await savePin({lat:selected.lat, lng:selected.lng, name:data.name, city:data.city, country:data.country, weather:data.weatherNote})
+    await savePin({
+      lat:selected.lat, lng:selected.lng, name:data.name,
+      city:data.city, country:data.country, weather:data.weatherNote, aiTool:data.aiTool
+    })
     setSelected(null)
   }
 
   // Edit via clicking your own marker
   const [editingPin, setEditingPin]=useState<Pin|null>(null)
   useEffect(()=>{ setEditingPin(editing) }, [editing])
-  const handleSubmitEdit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
+  const handleSubmitEdit=async(data:{name:string; city?:string; country?:string; weatherNote:string; aiTool?:string})=>{
     if(!editingPin){ return }
-    await savePin({lat:editingPin.lat, lng:editingPin.lng, name:data.name, city:data.city, country:data.country, weather:data.weatherNote})
+    await savePin({
+      lat:editingPin.lat, lng:editingPin.lng, name:data.name,
+      city:data.city, country:data.country, weather:data.weatherNote, aiTool:data.aiTool
+    })
     setEditing(null)
   }
 
@@ -202,7 +212,10 @@ export function MapView({pins, setPins}:Props){
   const handleDragEnd=async(pin:Pin, e:DragEndEvent)=>{
     const ll=(e.target as any)?.getLatLng?.()
     if(!ll){ return }
-    await savePin({lat:ll.lat, lng:ll.lng, name:pin.name, city:pin.city, country:pin.country, weather:pin.weather})
+    await savePin({
+      lat:ll.lat, lng:ll.lng, name:pin.name,
+      city:pin.city, country:pin.country, weather:pin.weather, aiTool:pin.aiTool
+    })
   }
 
   return (
@@ -224,7 +237,8 @@ export function MapView({pins, setPins}:Props){
               }}
             >
               <Tooltip>
-                {`${pin.name}${pin.city?`, ${pin.city}`:""}${pin.country?` • ${pin.country}`:""}${pin.weather?` • ${pin.weather}`:""}`}{pin.userId===userId?" • (you)":""}
+                {`${pin.name}${pin.city?`, ${pin.city}`:""}${pin.country?` • ${pin.country}`:""}${pin.weather?` • ${pin.weather}`:""}`}
+                {pin.aiTool? ` • AI: ${pin.aiTool}`:""}{pin.userId===userId?" • (you)":""}
               </Tooltip>
             </Marker>
           ))}
@@ -242,7 +256,10 @@ export function MapView({pins, setPins}:Props){
       {editingPin&&(
         <LocationDialog
           location={{lat:editingPin.lat, lng:editingPin.lng}}
-          initialData={{name:editingPin.name, city:editingPin.city, country:editingPin.country, weatherNote:editingPin.weather||""}}
+          initialData={{
+            name:editingPin.name, city:editingPin.city, country:editingPin.country,
+            weatherNote:editingPin.weather||"", aiTool:editingPin.aiTool||""
+          }}
           onSubmit={handleSubmitEdit}
           onClose={()=>setEditing(null)}
         />

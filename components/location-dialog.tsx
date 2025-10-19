@@ -5,10 +5,10 @@ import {useEffect, useState} from "react"
 
 type Props={
   location:{lat:number; lng:number}
-  onSubmit:(data:{name:string; city?:string; country?:string; weatherNote:string})=>void
+  onSubmit:(data:{name:string; city?:string; country?:string; weatherNote:string; aiTool?:string})=>void
   onClose:()=>void
   /** Optional: pass to prefill fields when editing */
-  initialData?:{name?:string; city?:string; country?:string; weatherNote?:string}
+  initialData?:{name?:string; city?:string; country?:string; weatherNote?:string; aiTool?:string}
 }
 
 const WEATHER_OPTIONS=["hot","cold","wet","dry","night","day"]
@@ -18,6 +18,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
   const [city, setCity]=useState("")
   const [country, setCountry]=useState("")
   const [selectedWeather, setSelectedWeather]=useState<string[]>([])
+  const [aiTool, setAiTool]=useState("")
 
   // Prefill when editing (runs once when initialData changes)
   useEffect(()=>{
@@ -30,6 +31,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
       .map((s)=>s.trim())
       .filter(Boolean)
     setSelectedWeather(parsed)
+    setAiTool(initialData.aiTool||"")
   }, [initialData])
 
   const toggleWeather=(w:string)=>{
@@ -46,7 +48,8 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
       name,
       city:city||undefined,
       country:country||undefined,
-      weatherNote:selectedWeather.join(", ")
+      weatherNote:selectedWeather.join(", "),
+      aiTool:aiTool.trim()||undefined
     })
   }
 
@@ -94,7 +97,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
           <div>
             <div style={{fontSize:13, fontWeight:600, marginBottom:6}}>Weather (choose one or more)</div>
             <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:8, fontSize:14}}>
-              {WEATHER_OPTIONS.map((w)=>(
+              {WEATHER_OPTIONS.map((w)=>(*
                 <label key={w} style={{
                   display:"flex", alignItems:"center", gap:8,
                   border:selectedWeather.includes(w)?"1px solid #60a5fa":"1px solid #ddd",
@@ -113,6 +116,20 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
             <div style={{marginTop:6, fontSize:12, color:"#64748b"}}>
               {selectedWeather.length>0? `Selected: ${selectedWeather.join(", ")}` : "Pick at least one"}
             </div>
+          </div>
+
+          {/* New: AI tool (optional) */}
+          <div>
+            <label htmlFor="aiTool" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>
+              AI you use most often (optional)
+            </label>
+            <input
+              id="aiTool"
+              value={aiTool}
+              onChange={(e)=>setAiTool(e.target.value)}
+              placeholder="e.g., ChatGPT, Claude, Midjourney"
+              style={{width:"100%", border:"1px solid #ccc", borderRadius:6, padding:"8px 10px"}}
+            />
           </div>
 
           <div style={{display:"flex", justifyContent:"flex-end", gap:8, marginTop:4}}>
