@@ -33,6 +33,29 @@ const getSessionId=()=>{
   return u.searchParams.get("session")||"default"
 }
 
+/* ---------- Inline SVG Icons (no external images) ---------- */
+const pinSvg=(fill:string="#ef4444")=>`
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 24 24">
+  <path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7z" fill="${fill}"/>
+  <circle cx="12" cy="9" r="3.2" fill="white"/>
+</svg>
+`
+const myIcon=L.divIcon({
+  className:"custom-pin",
+  html:pinSvg("#14b8a6"),          // teal for "you"
+  iconSize:[28, 40],
+  iconAnchor:[14, 40],
+  popupAnchor:[0, -40],
+})
+const defaultIcon=L.divIcon({
+  className:"custom-pin",
+  html:pinSvg("#ef4444"),          // red for others
+  iconSize:[28, 40],
+  iconAnchor:[14, 40],
+  popupAnchor:[0, -40],
+})
+/* ----------------------------------------------------------- */
+
 export function MapView({pins, setPins}:Props){
   const supabase=useMemo(()=>createClient(), [])
   const [selected, setSelected]=useState<{lat:number; lng:number}|null>(null)
@@ -193,6 +216,7 @@ export function MapView({pins, setPins}:Props){
             <Marker
               key={i}
               position={[pin.lat, pin.lng]}
+              icon={pin.userId===userId? myIcon : defaultIcon}
               draggable={pin.userId===userId}
               eventHandlers={{
                 dragend:(e)=>handleDragEnd(pin, e as any),
