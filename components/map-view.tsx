@@ -8,6 +8,7 @@ import L from "leaflet"
 import {LocationDialog} from "./location-dialog"
 import {createClient} from "../lib/supabase/client"
 
+// Fix Leaflet marker icons in Vite
 import marker2x from "leaflet/dist/images/marker-icon-2x.png"
 import marker1x from "leaflet/dist/images/marker-icon.png"
 import markerShadow from "leaflet/dist/images/marker-shadow.png"
@@ -47,8 +48,15 @@ export function MapView({pins, setPins}:Props){
   const pollRef=useRef<number|undefined>(undefined)
   const channelRef=useRef<ReturnType<typeof supabase.channel>|null>(null)
 
+  // Keep only newest row per user_id to avoid "bounce back"
   const mapRowsToPins=(rows:any[])=>{
-    return (rows||[]).map((r)=>({
+    const byUser=new Map<string, any>()
+    for(const r of rows||[]){
+      const uid=r.user_id as string
+      const prev=byUser.get(uid)
+      if(!prev || new Date(r.created_at)>new Date(prev.created_at)){ byUser.set(uid, r) }
+    }
+    return Array.from(byUser.values()).map((r)=>({
       lat:r.latitude, lng:r.longitude, name:r.name||"Participant",
       city:r.city||undefined, country:r.country||undefined, weather:r.weather_note||undefined,
       userId:r.user_id as string|undefined
@@ -69,12 +77,13 @@ export function MapView({pins, setPins}:Props){
     let mounted=true
     const setup=async()=>{
       await loadPins()
+      // Realtime broadcast (doesn't require DB replication)
       const ch=supabase
         .channel(`pins_broadcast_${sessionId}`)
         .on("broadcast", {event:"reload"}, (_msg)=>{ if(mounted){ loadPins() } })
         .subscribe()
       channelRef.current=ch
-      // steady polling as safety net
+      // Poll every 3s as a safety net
       pollRef.current=window.setInterval(loadPins, 3000) as unknown as number
     }
     setup()
@@ -88,9 +97,11 @@ export function MapView({pins, setPins}:Props){
 
   const handleSelect=(lat:number, lng:number)=>{ setSelected({lat, lng}) }
 
-  const notifyOthers=()=>{ try{ channelRef.current?.send({type:"broadcast", event:"reload", payload:{ts:Date.now()}}) }catch{} }
+  const notifyOthers=()=>{
+    try{ channelRef.current?.send({type:"broadcast", event:"reload", payload:{ts:Date.now()}}) }catch{}
+  }
 
-  // Submit from the dialog (create or move your one pin)
+  // Dialog submit → upsert (one pin per person) + bump created_at so newest wins
   const handleSubmit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
     if(!selected){ return }
     const row={
@@ -101,7 +112,8 @@ export function MapView({pins, setPins}:Props){
       name:data.name,
       city:data.city||null,
       country:data.country||null,
-      weather_note:data.weatherNote
+      weather_note:data.weatherNote,
+      created_at:new Date().toISOString()
     }
     const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
     if(error){ console.error("Upsert error:", error.message) }
@@ -110,7 +122,7 @@ export function MapView({pins, setPins}:Props){
     notifyOthers()
   }
 
-  // NEW: drag to move your own pin
+  // Drag your own pin to move it (also bump created_at)
   const handleDragEnd=async(pin:Pin, e:DragEndEvent)=>{
     const ll=(e.target as any)?.getLatLng?.()
     if(!ll){ return }
@@ -122,7 +134,8 @@ export function MapView({pins, setPins}:Props){
       name:pin.name,
       city:pin.city||null,
       country:pin.country||null,
-      weather_note:pin.weather||null
+      weather_note:pin.weather||null,
+      created_at:new Date().toISOString()
     }
     const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
     if(error){ console.error("Move error:", error.message) }
@@ -141,13 +154,11 @@ export function MapView({pins, setPins}:Props){
             <Marker
               key={i}
               position={[pin.lat, pin.lng]}
-              // 👇 only your pin is draggable
               draggable={pin.userId===userId}
               eventHandlers={{ dragend:(e)=>handleDragEnd(pin, e as any) }}
             >
               <Tooltip>
-                {`${pin.name}${pin.city?`, ${pin.city}`:""}${pin.country?` • ${pin.country}`:""}${pin.weather?` • ${pin.weather}`:""}`}
-                {pin.userId===userId? " • (you)":""}
+                {`${pin.name}${pin.city?`, ${pin.city}`:""}${pin.country?` • ${pin.country}`:""}${pin.weather?` • ${pin.weather}`:""}`}{pin.userId===userId?" • (you)":""}
               </Tooltip>
             </Marker>
           ))}
