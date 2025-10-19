@@ -97,7 +97,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
           <div>
             <div style={{fontSize:13, fontWeight:600, marginBottom:6}}>Weather (choose one or more)</div>
             <div style={{display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:8, fontSize:14}}>
-              {WEATHER_OPTIONS.map((w)=>(*
+              {WEATHER_OPTIONS.map((w)=>(
                 <label key={w} style={{
                   display:"flex", alignItems:"center", gap:8,
                   border:selectedWeather.includes(w)?"1px solid #60a5fa":"1px solid #ddd",
