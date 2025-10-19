@@ -42,6 +42,7 @@ const getSessionId=()=>{
 export function MapView({pins, setPins}:Props){
   const supabase=useMemo(()=>createClient(), [])
   const [selected, setSelected]=useState<{lat:number; lng:number}|null>(null)
+  const [editing, setEditing]=useState<Pin|null>(null)
   const center={lat:0, lng:0}
   const sessionId=getSessionId()
   const userId=getClientId()
@@ -97,50 +98,50 @@ export function MapView({pins, setPins}:Props){
 
   const handleSelect=(lat:number, lng:number)=>{ setSelected({lat, lng}) }
 
-  const notifyOthers=()=>{
-    try{ channelRef.current?.send({type:"broadcast", event:"reload", payload:{ts:Date.now()}}) }catch{}
-  }
+  const notifyOthers=()=>{ try{ channelRef.current?.send({type:"broadcast", event:"reload", payload:{ts:Date.now()}}) }catch{} }
 
-  // Dialog submit → upsert (one pin per person) + bump created_at so newest wins
-  const handleSubmit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
-    if(!selected){ return }
+  // Shared save (optimistic + persist + notify)
+  const savePin=async(p:Pin)=>{
+    // optimistic: replace any existing pin for this user in local state
+    const next=[{...p, userId}, ...pins.filter((x)=>x.userId!==userId)]
+    setPins(next)
+
     const row={
       session_id:sessionId,
       user_id:userId,
-      latitude:selected.lat,
-      longitude:selected.lng,
-      name:data.name,
-      city:data.city||null,
-      country:data.country||null,
-      weather_note:data.weatherNote,
+      latitude:p.lat,
+      longitude:p.lng,
+      name:p.name,
+      city:p.city||null,
+      country:p.country||null,
+      weather_note:p.weather||null,
       created_at:new Date().toISOString()
     }
     const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
-    if(error){ console.error("Upsert error:", error.message) }
-    setSelected(null)
+    if(error){ console.error("Save error:", error.message) }
     await loadPins()
     notifyOthers()
   }
 
-  // Drag your own pin to move it (also bump created_at)
+  // Dialog submit → create/move to selected point
+  const handleSubmitAdd=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
+    if(!selected){ return }
+    await savePin({lat:selected.lat, lng:selected.lng, name:data.name, city:data.city, country:data.country, weather:data.weatherNote})
+    setSelected(null)
+  }
+
+  // Edit dialog submit → update fields at same coords
+  const handleSubmitEdit=async(data:{name:string; city?:string; country?:string; weatherNote:string})=>{
+    if(!editing){ return }
+    await savePin({lat:editing.lat, lng:editing.lng, name:data.name, city:data.city, country:data.country, weather:data.weatherNote})
+    setEditing(null)
+  }
+
+  // Drag your own pin to move it (keeps details the same)
   const handleDragEnd=async(pin:Pin, e:DragEndEvent)=>{
     const ll=(e.target as any)?.getLatLng?.()
     if(!ll){ return }
-    const row={
-      session_id:sessionId,
-      user_id:userId,
-      latitude:ll.lat,
-      longitude:ll.lng,
-      name:pin.name,
-      city:pin.city||null,
-      country:pin.country||null,
-      weather_note:pin.weather||null,
-      created_at:new Date().toISOString()
-    }
-    const {error}=await supabase.from("location_pins").upsert(row, {onConflict:"session_id, user_id"}).select()
-    if(error){ console.error("Move error:", error.message) }
-    await loadPins()
-    notifyOthers()
+    await savePin({lat:ll.lat, lng:ll.lng, name:pin.name, city:pin.city, country:pin.country, weather:pin.weather})
   }
 
   return (
@@ -155,7 +156,10 @@ export function MapView({pins, setPins}:Props){
               key={i}
               position={[pin.lat, pin.lng]}
               draggable={pin.userId===userId}
-              eventHandlers={{ dragend:(e)=>handleDragEnd(pin, e as any) }}
+              eventHandlers={{
+                dragend:(e)=>handleDragEnd(pin, e as any),
+                click:()=>{ if(pin.userId===userId){ setEditing(pin) } }
+              }}
             >
               <Tooltip>
                 {`${pin.name}${pin.city?`, ${pin.city}`:""}${pin.country?` • ${pin.country}`:""}${pin.weather?` • ${pin.weather}`:""}`}{pin.userId===userId?" • (you)":""}
@@ -168,8 +172,17 @@ export function MapView({pins, setPins}:Props){
       {selected&&(
         <LocationDialog
           location={{lat:selected.lat, lng:selected.lng}}
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmitAdd}
           onClose={()=>setSelected(null)}
+        />
+      )}
+
+      {editing&&(
+        <LocationDialog
+          location={{lat:editing.lat, lng:editing.lng}}
+          initialData={{name:editing.name, city:editing.city, country:editing.country, weatherNote:editing.weather||""}}
+          onSubmit={handleSubmitEdit}
+          onClose={()=>setEditing(null)}
         />
       )}
     </>

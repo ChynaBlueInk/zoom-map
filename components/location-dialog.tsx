@@ -1,21 +1,36 @@
 "use client"
 
 import type React from "react"
-import {useState} from "react"
+import {useEffect, useState} from "react"
 
 type Props={
   location:{lat:number; lng:number}
   onSubmit:(data:{name:string; city?:string; country?:string; weatherNote:string})=>void
   onClose:()=>void
+  /** Optional: pass to prefill fields when editing */
+  initialData?:{name?:string; city?:string; country?:string; weatherNote?:string}
 }
 
 const WEATHER_OPTIONS=["hot","cold","wet","dry","night","day"]
 
-export function LocationDialog({location, onSubmit, onClose}:Props){
+export function LocationDialog({location, onSubmit, onClose, initialData}:Props){
   const [name, setName]=useState("")
   const [city, setCity]=useState("")
   const [country, setCountry]=useState("")
   const [selectedWeather, setSelectedWeather]=useState<string[]>([])
+
+  // Prefill when editing (runs once when initialData changes)
+  useEffect(()=>{
+    if(!initialData){ return }
+    setName(initialData.name||"")
+    setCity(initialData.city||"")
+    setCountry(initialData.country||"")
+    const parsed=(initialData.weatherNote||"")
+      .split(",")
+      .map((s)=>s.trim())
+      .filter(Boolean)
+    setSelectedWeather(parsed)
+  }, [initialData])
 
   const toggleWeather=(w:string)=>{
     setSelectedWeather((prev)=>{
@@ -35,6 +50,10 @@ export function LocationDialog({location, onSubmit, onClose}:Props){
     })
   }
 
+  const isEdit=Boolean(initialData)
+  const title=isEdit? "Edit Your Location" : "Add Your Location"
+  const cta=isEdit? "Save Changes" : "Add Pin"
+
   return (
     <div
       onClick={onClose}
@@ -48,7 +67,7 @@ export function LocationDialog({location, onSubmit, onClose}:Props){
         onClick={(e)=>e.stopPropagation()}
         style={{background:"#fff", borderRadius:8, boxShadow:"0 10px 30px rgba(0,0,0,.2)", width:"100%", maxWidth:480, padding:24, fontFamily:"system-ui, Arial, sans-serif"}}
       >
-        <div style={{fontWeight:600, fontSize:18, marginBottom:6}}>Add Your Location</div>
+        <div style={{fontWeight:600, fontSize:18, marginBottom:6}}>{title}</div>
         <div style={{color:"#555", fontSize:13, marginBottom:16}}>Please add your name and the weather.</div>
 
         <form onSubmit={handleSubmit} style={{display:"grid", gap:12}}>
@@ -101,7 +120,7 @@ export function LocationDialog({location, onSubmit, onClose}:Props){
                     style={{border:"1px solid #ccc", background:"#fff", borderRadius:6, padding:"8px 12px"}}>Cancel</button>
             <button type="submit" disabled={!name||selectedWeather.length===0}
                     style={{border:"none", background:"#2563eb", color:"#fff", borderRadius:6, padding:"8px 12px", opacity:(!name||selectedWeather.length===0)?0.6:1}}>
-              Add Pin
+              {cta}
             </button>
           </div>
         </form>
