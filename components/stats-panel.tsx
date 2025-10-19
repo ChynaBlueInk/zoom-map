@@ -2,29 +2,41 @@
 
 import {useEffect, useState} from "react"
 
-type Pin={lat:number; lng:number; name:string; city?:string; country?:string; weather?:string}
+type Pin={lat:number; lng:number; name:string; city?:string; country?:string; weather?:string; aiTool?:string}
 
 export function StatsPanel({pins}:{pins:Pin[]|undefined}){
-  // --- basic aggregates
+  // --- aggregates
   const byCountry:Record<string, number>={}
   ;(pins||[]).forEach((p)=>{ if(p.country){ byCountry[p.country]=(byCountry[p.country]||0)+1 } })
   const entries=Object.entries(byCountry).sort((a,b)=>b[1]-a[1])
   const total=(pins||[]).length
   const max=entries[0]?.[1]||1
 
+  // AI word cloud counts (split on commas, trim)
+  const aiCounts:Record<string, number>={}
+  ;(pins||[]).forEach((p)=>{
+    const raw=(p.aiTool||"").trim()
+    if(!raw){ return }
+    raw.split(",").map((s)=>s.trim()).filter(Boolean).forEach((tool)=>{
+      const key=tool.toLowerCase()
+      aiCounts[key]=(aiCounts[key]||0)+1
+    })
+  })
+  const aiWords=Object.entries(aiCounts).sort((a,b)=>b[1]-a[1])
+
   // --- responsive behaviour
   const [isMobile, setIsMobile]=useState(false)
   const [open, setOpen]=useState(true)
 
   useEffect(()=>{
-    const check=()=>{ setIsMobile(window.innerWidth<640) } // <640px → mobile
+    const check=()=>{ setIsMobile(window.innerWidth<640) }
     check()
     window.addEventListener("resize", check)
     return ()=>window.removeEventListener("resize", check)
   },[])
 
   useEffect(()=>{
-    // default: desktop open, mobile closed to avoid overlapping the instructions
+    // desktop open, mobile closed (to avoid overlapping instructions)
     setOpen(!isMobile)
   },[isMobile])
 
@@ -45,20 +57,17 @@ export function StatsPanel({pins}:{pins:Pin[]|undefined}){
     </button>
   )
 
-  if(!open){
-    return ToggleButton
-  }
+  if(!open){ return ToggleButton }
 
   return (
     <>
       {/* Panel */}
       <div style={{
         position:"fixed",
-        // desktop: top-right; mobile: bottom-right above the toggle
         top:isMobile? "auto" : 16,
         right:16,
         bottom:isMobile? 64 : "auto",
-        zIndex:9998, // keep below the toggle + below the dialog
+        zIndex:9998,
         width:isMobile? "min(92vw, 360px)" : 320,
         background:"#fff", borderRadius:12, padding:16,
         boxShadow:"0 12px 30px rgba(0,0,0,.2)",
@@ -78,6 +87,7 @@ export function StatsPanel({pins}:{pins:Pin[]|undefined}){
           <span style={{fontWeight:700, color:"#2563eb"}}>{total}</span>
         </div>
 
+        {/* Keep the Top Regions list */}
         <div style={{fontWeight:700, fontSize:13, marginTop:8, marginBottom:6}}>Top Regions</div>
         {entries.length===0&&(<div style={{fontSize:12, color:"#64748b"}}>No countries yet</div>)}
         {entries.slice(0,5).map(([country, count])=>(
@@ -92,18 +102,28 @@ export function StatsPanel({pins}:{pins:Pin[]|undefined}){
           </div>
         ))}
 
-        {/* simple calligram-style block */}
-        {entries.length>0&&(
-          <div style={{
-            marginTop:12, padding:8, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8,
-            display:"flex", flexWrap:"wrap", gap:8, alignItems:"baseline"
-          }}>
-            {entries.map(([country, count])=>{
-              const size=12+Math.round((count/max)*16) // 12–28px
-              return <span key={country} style={{fontSize:size, fontWeight:600, color:"#1f2937"}}>{country}</span>
-            })}
-          </div>
-        )}
+        {/* NEW: AI word cloud (replaces the old country calligram) */}
+        <div style={{fontWeight:700, fontSize:13, marginTop:12, marginBottom:6}}>AI Tools (word cloud)</div>
+        <div style={{
+          marginTop:4, padding:8, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8,
+          display:"flex", flexWrap:"wrap", gap:10, alignItems:"baseline", lineHeight:1.1
+        }}>
+          {aiWords.length===0? (
+            <span style={{fontSize:12, color:"#64748b"}}>No AI tools yet</span>
+          ):(
+            aiWords.map(([word, count])=>{
+              const size=Math.min(40, 12+count*6) // 12–40px
+              const weight=count>=3? 800 : count===2? 700 : 600
+              // Show nicely-cased text: title-case each token
+              const pretty=word.split(" ").map((t)=>t.charAt(0).toUpperCase()+t.slice(1)).join(" ")
+              return (
+                <span key={word} style={{fontSize:size, fontWeight:weight, color:"#0ea5e9"}}>
+                  {pretty}
+                </span>
+              )
+            })
+          )}
+        </div>
       </div>
 
       {/* Toggle button */}

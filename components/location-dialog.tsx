@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import {useEffect, useState} from "react"
+import {useEffect, useRef, useState} from "react"
 
 type Props={
   location:{lat:number; lng:number}
@@ -20,18 +20,19 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
   const [selectedWeather, setSelectedWeather]=useState<string[]>([])
   const [aiTool, setAiTool]=useState("")
 
-  // Prefill when editing (runs once when initialData changes)
+  // Prefill exactly once to avoid wiping user input on re-renders
+  const prefilledRef=useRef(false)
   useEffect(()=>{
-    if(!initialData){ return }
-    setName(initialData.name||"")
-    setCity(initialData.city||"")
-    setCountry(initialData.country||"")
-    const parsed=(initialData.weatherNote||"")
-      .split(",")
-      .map((s)=>s.trim())
-      .filter(Boolean)
-    setSelectedWeather(parsed)
-    setAiTool(initialData.aiTool||"")
+    if(prefilledRef.current){ return }
+    prefilledRef.current=true
+    if(initialData){
+      setName(initialData.name||"")
+      setCity(initialData.city||"")
+      setCountry(initialData.country||"")
+      const parsed=(initialData.weatherNote||"").split(",").map((s)=>s.trim()).filter(Boolean)
+      setSelectedWeather(parsed)
+      setAiTool(initialData.aiTool||"")
+    }
   }, [initialData])
 
   const toggleWeather=(w:string)=>{
@@ -104,11 +105,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
                   background:selectedWeather.includes(w)?"#eff6ff":"#fff",
                   borderRadius:6, padding:"8px 10px", cursor:"pointer"
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedWeather.includes(w)}
-                    onChange={()=>toggleWeather(w)}
-                  />
+                  <input type="checkbox" checked={selectedWeather.includes(w)} onChange={()=>toggleWeather(w)}/>
                   {w}
                 </label>
               ))}
@@ -118,7 +115,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
             </div>
           </div>
 
-          {/* New: AI tool (optional) */}
+          {/* AI tool (optional) */}
           <div>
             <label htmlFor="aiTool" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>
               AI you use most often (optional)
