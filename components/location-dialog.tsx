@@ -114,7 +114,6 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
               {selectedWeather.length>0? `Selected: ${selectedWeather.join(", ")}` : "Pick at least one"}
             </div>
           </div>
-
           {/* AI tool (optional) */}
           <div>
             <label htmlFor="aiTool" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>
@@ -124,7 +123,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
               id="aiTool"
               value={aiTool}
               onChange={(e)=>setAiTool(e.target.value)}
-              placeholder="e.g., ChatGPT, Claude, Midjourney"
+              placeholder="e.g., ChatGPT, Claude, Notebook"
               style={{width:"100%", border:"1px solid #ccc", borderRadius:6, padding:"8px 10px"}}
             />
           </div>

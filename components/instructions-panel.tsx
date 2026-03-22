@@ -57,7 +57,7 @@ export function InstructionsPanel(){
       <ol style={{paddingLeft:16, margin:"8px 0 12px 0", color:"#334155", fontSize:14}}>
         <li style={{marginBottom:6}}>Click anywhere on the map to drop your pin</li>
         <li style={{marginBottom:6}}>Enter your <b>name</b>, optional city/country, and today’s <b>weather</b></li>
-        <li>Watch everyone’s pins appear in real time (we’ll turn this on next)</li>
+        <li>Watch everyone’s pins appear in real time.</li>
       </ol>
 
       <div style={{borderTop:"1px solid #e2e8f0", paddingTop:12}}>
