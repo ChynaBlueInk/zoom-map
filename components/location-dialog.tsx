@@ -85,12 +85,12 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
             <div>
               <label htmlFor="city" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>City (optional)</label>
-              <input id="city" value={city} onChange={(e)=>setCity(e.target.value)} placeholder="e.g., Dili"
+              <input id="city" value={city} onChange={(e)=>setCity(e.target.value)} placeholder="e.g., Wellington"
                      style={{width:"100%", border:"1px solid #ccc", borderRadius:6, padding:"8px 10px"}}/>
             </div>
             <div>
               <label htmlFor="country" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>Country (optional)</label>
-              <input id="country" value={country} onChange={(e)=>setCountry(e.target.value)} placeholder="e.g., Timor-Leste"
+              <input id="country" value={country} onChange={(e)=>setCountry(e.target.value)} placeholder="e.g., New Zealand"
                      style={{width:"100%", border:"1px solid #ccc", borderRadius:6, padding:"8px 10px"}}/>
             </div>
           </div>
@@ -118,7 +118,7 @@ export function LocationDialog({location, onSubmit, onClose, initialData}:Props)
           {/* AI tool (optional) */}
           <div>
             <label htmlFor="aiTool" style={{display:"block", fontSize:13, fontWeight:600, marginBottom:6}}>
-              AI you use most often (optional)
+              AI you enjoy using the most (optional)
             </label>
             <input
               id="aiTool"
